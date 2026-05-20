@@ -91,7 +91,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         showPopover()
 
-        if cachedBalance == nil && token != nil {
+        if token != nil {
             fetchBalance()
         }
     }
