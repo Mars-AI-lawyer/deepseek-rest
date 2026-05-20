@@ -8,7 +8,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var token: String?
     private var cachedBalance: BalanceInfo?
     private var hideTimer: Timer?
-    private var isMouseOverPopover = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         initPopover()
@@ -20,7 +19,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func initPopover() {
         balanceVC = BalanceViewController()
-        balanceVC.onRefresh = { [weak self] in self?.fetchBalance() }
+        balanceVC.onRefresh = { [weak self] in
+            self?.balanceVC.showLoading()
+            self?.showPopover()
+            self?.fetchBalance()
+        }
         balanceVC.onChangeToken = { [weak self] in
             self?.popover.close()
             self?.showTokenPrompt()
@@ -78,7 +81,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc(mouseEntered:) func mouseEntered(with event: NSEvent) {
         hideTimer?.invalidate()
         hideTimer = nil
+
+        if let cached = cachedBalance {
+            balanceVC.update(with: cached)
+        } else if token != nil {
+            balanceVC.showLoading()
+        } else {
+            balanceVC.showNoToken()
+        }
         showPopover()
+
+        if cachedBalance == nil && token != nil {
+            fetchBalance()
+        }
     }
 
     @objc(mouseExited:) func mouseExited(with event: NSEvent) {
@@ -87,42 +102,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showPopover() {
         guard let button = statusItem?.button, !popover.isShown else { return }
-
-        if cachedBalance != nil {
-            balanceVC.update(with: cachedBalance!)
-        } else if token != nil {
-            balanceVC.showLoading()
-            fetchBalance()
-        } else {
-            balanceVC.showNoToken()
-        }
-
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-
-        // Track mouse in popover
-        if let popoverWindow = popover.contentViewController?.view.window {
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(popoverWindowClosed),
-                name: NSWindow.willCloseNotification,
-                object: popoverWindow
-            )
-        }
     }
 
     private func scheduleHide() {
         hideTimer?.invalidate()
         hideTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
-            guard let self = self else { return }
-            if !self.isMouseOverPopover {
-                self.popover.close()
-            }
+            self?.popover.close()
         }
-    }
-
-    @objc private func popoverWindowClosed() {
-        hideTimer?.invalidate()
-        hideTimer = nil
     }
 
     // MARK: - Click
@@ -132,22 +119,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             showTokenPrompt()
             return
         }
+        balanceVC.showLoading()
+        showPopover()
         fetchBalance()
     }
 
     // MARK: - Network
 
     private func fetchBalance() {
-        guard let token = token else {
-            balanceVC.showNoToken()
-            showPopover()
-            return
-        }
-
-        balanceVC.showLoading()
-        if !popover.isShown {
-            showPopover()
-        }
+        guard let token = token else { return }
 
         DeepSeekAPI.fetchBalance(token: token) { [weak self] result in
             DispatchQueue.main.async {
@@ -161,6 +141,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         self?.token = nil
                         self?.cachedBalance = nil
                         self?.balanceVC.showNoToken()
+                        self?.popover.close()
                         self?.showTokenPrompt()
                     } else {
                         self?.balanceVC.showError(error.localizedDescription)
@@ -178,6 +159,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             KeychainManager.save(tk)
             self?.token = tk
             self?.cachedBalance = nil
+            self?.balanceVC.showLoading()
+            self?.showPopover()
             self?.fetchBalance()
         }
     }
