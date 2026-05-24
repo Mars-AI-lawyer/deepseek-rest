@@ -33,6 +33,7 @@ echo "=== Step 4: Copy resources ==="
 cp "$SOURCE_DIR/Assets/status_icon.png" "$RESOURCES_DIR/"
 cp "$SOURCE_DIR/Assets/status_icon@2x.png" "$RESOURCES_DIR/"
 cp "$SOURCE_DIR/Assets/status_icon@3x.png" "$RESOURCES_DIR/"
+cp "$SOURCE_DIR/Assets/AppIcon.icns" "$RESOURCES_DIR/"
 cp "$SOURCE_DIR/Info.plist" "$CONTENTS/"
 
 echo "=== Step 5: Sign (ad-hoc) ==="

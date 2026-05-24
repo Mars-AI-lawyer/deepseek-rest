@@ -42,6 +42,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem?.button else { return }
         button.image = loadStatusIcon()
         button.image?.isTemplate = true
+        button.focusRingType = .none
         button.target = self
         button.action = #selector(statusItemClicked)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
