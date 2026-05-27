@@ -1,5 +1,10 @@
 import AppKit
 
+enum Platform {
+    case deepseek
+    case mimo
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem?
@@ -8,6 +13,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var token: String?
     private var cachedBalance: BalanceInfo?
     private var hideTimer: Timer?
+
+    // MiMo 相关
+    private var mimoPopover: NSPopover!
+    private var mimoBalanceVC: MiMoBalanceViewController!
+    private var cachedMiMoUsage: MiMoUsageInfo?
+    private var loginWindowController: MiMoLoginWindowController?
+
+    // 当前平台
+    private var currentPlatform: Platform = .deepseek
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         initPopover()
@@ -18,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Popover
 
     private func initPopover() {
+        // DeepSeek Popover
         balanceVC = BalanceViewController()
         balanceVC.onRefresh = { [weak self] in
             self?.balanceVC.showLoading()
@@ -32,6 +47,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         popover = NSPopover()
         popover.contentViewController = balanceVC
         popover.behavior = .transient
+
+        // MiMo Popover
+        mimoBalanceVC = MiMoBalanceViewController()
+        mimoBalanceVC.onRefresh = { [weak self] in
+            self?.mimoBalanceVC.showLoading()
+            self?.showPopover()
+            self?.fetchMiMoUsage()
+        }
+        mimoBalanceVC.onLogin = { [weak self] in
+            self?.mimoPopover.close()
+            self?.showMiMoLogin()
+        }
+
+        mimoPopover = NSPopover()
+        mimoPopover.contentViewController = mimoBalanceVC
+        mimoPopover.behavior = .transient
     }
 
     // MARK: - Status Item
@@ -45,11 +76,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         button.focusRingType = .none
         button.target = self
         button.action = #selector(statusItemClicked)
-        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
         let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways]
         let trackingArea = NSTrackingArea(rect: button.bounds, options: options, owner: self, userInfo: nil)
         button.addTrackingArea(trackingArea)
+    }
+
+    private func buildContextMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        // 平台切换
+        let platformItem = NSMenuItem(title: "当前: \(currentPlatform == .deepseek ? "DeepSeek" : "MiMo")", action: nil, keyEquivalent: "")
+        platformItem.isEnabled = false
+        menu.addItem(platformItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        if currentPlatform == .deepseek {
+            let switchItem = NSMenuItem(title: "切换到 MiMo", action: #selector(switchToMiMo), keyEquivalent: "m")
+            switchItem.target = self
+            menu.addItem(switchItem)
+        } else {
+            let switchItem = NSMenuItem(title: "切换到 DeepSeek", action: #selector(switchToDeepSeek), keyEquivalent: "d")
+            switchItem.target = self
+            menu.addItem(switchItem)
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
+        if currentPlatform == .mimo {
+            let loginItem = NSMenuItem(title: "MiMo 登录", action: #selector(showMiMoLoginMenu), keyEquivalent: "l")
+            loginItem.target = self
+            menu.addItem(loginItem)
+        }
+
+        let quitItem = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        return menu
     }
 
     private func loadStatusIcon() -> NSImage? {
@@ -69,11 +134,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func attemptAutoRefresh() {
-        token = KeychainManager.load()
-        if token == nil {
-            DispatchQueue.main.async { self.showTokenPrompt() }
+        if currentPlatform == .deepseek {
+            token = KeychainManager.load()
+            if token == nil {
+                DispatchQueue.main.async { self.showTokenPrompt() }
+            } else {
+                fetchBalance()
+            }
         } else {
-            fetchBalance()
+            if MiMoAPI.loadCookies() == nil {
+                DispatchQueue.main.async { self.showMiMoLogin() }
+            } else {
+                fetchMiMoUsage()
+            }
         }
     }
 
@@ -83,17 +156,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hideTimer?.invalidate()
         hideTimer = nil
 
-        if let cached = cachedBalance {
-            balanceVC.update(with: cached)
-        } else if token != nil {
-            balanceVC.showLoading()
+        if currentPlatform == .deepseek {
+            if let cached = cachedBalance {
+                balanceVC.update(with: cached)
+            } else if token != nil {
+                balanceVC.showLoading()
+            } else {
+                balanceVC.showNoToken()
+            }
         } else {
-            balanceVC.showNoToken()
+            if let cached = cachedMiMoUsage {
+                mimoBalanceVC.update(with: cached)
+            } else if MiMoAPI.loadCookies() != nil {
+                mimoBalanceVC.showLoading()
+            } else {
+                mimoBalanceVC.showNoLogin()
+            }
         }
         showPopover()
 
-        if token != nil {
+        if currentPlatform == .deepseek && token != nil {
             fetchBalance()
+        } else if currentPlatform == .mimo && MiMoAPI.loadCookies() != nil {
+            fetchMiMoUsage()
         }
     }
 
@@ -102,27 +187,67 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPopover() {
-        guard let button = statusItem?.button, !popover.isShown else { return }
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        guard let button = statusItem?.button else { return }
+
+        if currentPlatform == .deepseek {
+            guard !popover.isShown else { return }
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        } else {
+            guard !mimoPopover.isShown else { return }
+            mimoPopover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
     }
 
     private func scheduleHide() {
         hideTimer?.invalidate()
         hideTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
-            self?.popover.close()
+            guard let self = self else { return }
+            if self.currentPlatform == .deepseek {
+                self.popover.close()
+            } else {
+                self.mimoPopover.close()
+            }
         }
     }
 
     // MARK: - Click
 
     @objc private func statusItemClicked() {
-        guard token != nil else {
-            showTokenPrompt()
+        guard let event = NSApp.currentEvent else { return }
+
+        // 检测 Option 键点击
+        if event.modifierFlags.contains(.option) {
+            showPlatformMenu()
             return
         }
-        balanceVC.showLoading()
-        showPopover()
-        fetchBalance()
+
+        if currentPlatform == .deepseek {
+            guard token != nil else {
+                showTokenPrompt()
+                return
+            }
+            balanceVC.showLoading()
+            showPopover()
+            fetchBalance()
+        } else {
+            guard MiMoAPI.loadCookies() != nil else {
+                mimoBalanceVC.showNoLogin()
+                showPopover()
+                return
+            }
+            mimoBalanceVC.showLoading()
+            showPopover()
+            fetchMiMoUsage()
+        }
+    }
+
+    private func showPlatformMenu() {
+        let menu = buildContextMenu()
+
+        // 在状态栏图标下方显示菜单
+        if let button = statusItem?.button {
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button)
+        }
     }
 
     // MARK: - Network
@@ -164,5 +289,93 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.showPopover()
             self?.fetchBalance()
         }
+    }
+
+    // MARK: - MiMo
+
+    private func fetchMiMoUsage() {
+        MiMoAPI.fetchUsage { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let info):
+                    self?.cachedMiMoUsage = info
+                    self?.mimoBalanceVC.update(with: info)
+                case .failure(let error):
+                    if case .unauthorized = error {
+                        MiMoAPI.deleteCookies()
+                        self?.cachedMiMoUsage = nil
+                        self?.mimoBalanceVC.showNoLogin()
+                    } else {
+                        self?.mimoBalanceVC.showError(error.localizedDescription)
+                    }
+                }
+            }
+        }
+    }
+
+    private func showMiMoLogin() {
+        loginWindowController = MiMoLoginWindowController()
+        loginWindowController?.onLoginSuccess = { [weak self] cookieString in
+            MiMoAPI.saveCookies(cookieString)
+            self?.cachedMiMoUsage = nil
+            self?.mimoBalanceVC.showLoading()
+            self?.showPopover()
+            self?.fetchMiMoUsage()
+            self?.loginWindowController = nil
+        }
+        loginWindowController?.onLoginCancel = { [weak self] in
+            self?.loginWindowController = nil
+        }
+        loginWindowController?.showWindow(nil)
+        loginWindowController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func switchToMiMo() {
+        currentPlatform = .mimo
+        popover.close()
+        updateStatusIcon()
+        attemptAutoRefresh()
+    }
+
+    @objc private func switchToDeepSeek() {
+        currentPlatform = .deepseek
+        mimoPopover.close()
+        updateStatusIcon()
+        attemptAutoRefresh()
+    }
+
+    @objc private func showMiMoLoginMenu() {
+        showMiMoLogin()
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
+    }
+
+    private func updateStatusIcon() {
+        guard let button = statusItem?.button else { return }
+        if currentPlatform == .deepseek {
+            button.image = loadStatusIcon()
+        } else {
+            button.image = loadMiMoStatusIcon()
+        }
+    }
+
+    private func loadMiMoStatusIcon() -> NSImage? {
+        // 尝试加载自定义图标，否则使用系统图标
+        let names = ["mimo_icon@2x", "mimo_icon"]
+        for name in names {
+            if let path = Bundle.main.path(forResource: name, ofType: "png"),
+               let img = NSImage(contentsOfFile: path) {
+                img.isTemplate = true
+                img.size = NSSize(width: 18, height: 18)
+                return img
+            }
+        }
+        let img = NSImage(systemSymbolName: "cpu",
+                          accessibilityDescription: "MiMo")
+        img?.isTemplate = true
+        return img
     }
 }

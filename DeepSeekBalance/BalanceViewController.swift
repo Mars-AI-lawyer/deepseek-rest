@@ -14,7 +14,7 @@ class BalanceViewController: NSViewController {
         v.onRefresh = { [weak self] in self?.onRefresh?() }
         v.onChangeToken = { [weak self] in self?.onChangeToken?() }
         view = v
-        preferredContentSize = NSSize(width: 280, height: 180)
+        preferredContentSize = NSSize(width: 280, height: 200)
     }
 
     func showLoading() {
@@ -37,22 +37,23 @@ class BalanceViewController: NSViewController {
 class BalancePopoverView: NSView {
 
     private let effectView = NSVisualEffectView()
-    private let titleLabel = NSTextField(labelWithString: "DeepSeek 余额")
-    private let balanceLabel = NSTextField(labelWithString: "")
-    private let subtitleLabel = NSTextField(labelWithString: "总余额")
+    private let titleLabel = NSTextField()
+    private let balanceLabel = NSTextField()
+    private let subtitleLabel = NSTextField()
 
-    private let toppedUpLabel = NSTextField(labelWithString: "充值余额")
+    private let toppedUpLabel = NSTextField()
     private let toppedUpBar = ProgressBarView()
-    private let toppedUpValue = NSTextField(labelWithString: "")
+    private let toppedUpValue = NSTextField()
 
-    private let grantedLabel = NSTextField(labelWithString: "赠送余额")
+    private let grantedLabel = NSTextField()
     private let grantedBar = ProgressBarView()
-    private let grantedValue = NSTextField(labelWithString: "")
+    private let grantedValue = NSTextField()
 
     private let refreshButton = NSButton()
     private let settingsButton = NSButton()
 
-    private var stateLabel = NSTextField(labelWithString: "")
+    private var stateLabel = NSTextField()
+    private let tipLabel = NSTextField()
 
     var onRefresh: (() -> Void)?
     var onChangeToken: (() -> Void)?
@@ -76,9 +77,14 @@ class BalancePopoverView: NSView {
         addSubview(effectView)
 
         // Title
+        titleLabel.stringValue = "DeepSeek 余额"
         titleLabel.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         titleLabel.textColor = .secondaryLabelColor
         titleLabel.alignment = .center
+        titleLabel.isEditable = false
+        titleLabel.isSelectable = false
+        titleLabel.isBordered = false
+        titleLabel.drawsBackground = false
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
 
@@ -86,13 +92,22 @@ class BalancePopoverView: NSView {
         balanceLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 28, weight: .bold)
         balanceLabel.textColor = .labelColor
         balanceLabel.alignment = .center
+        balanceLabel.isEditable = false
+        balanceLabel.isSelectable = false
+        balanceLabel.isBordered = false
+        balanceLabel.drawsBackground = false
         balanceLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(balanceLabel)
 
         // Subtitle
+        subtitleLabel.stringValue = "总余额"
         subtitleLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
         subtitleLabel.textColor = .tertiaryLabelColor
         subtitleLabel.alignment = .center
+        subtitleLabel.isEditable = false
+        subtitleLabel.isSelectable = false
+        subtitleLabel.isBordered = false
+        subtitleLabel.drawsBackground = false
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(subtitleLabel)
 
@@ -100,13 +115,22 @@ class BalancePopoverView: NSView {
         stateLabel.font = NSFont.systemFont(ofSize: 13)
         stateLabel.textColor = .secondaryLabelColor
         stateLabel.alignment = .center
+        stateLabel.isEditable = false
+        stateLabel.isSelectable = false
+        stateLabel.isBordered = false
+        stateLabel.drawsBackground = false
         stateLabel.translatesAutoresizingMaskIntoConstraints = false
         stateLabel.isHidden = true
         addSubview(stateLabel)
 
         // Topped up row
+        toppedUpLabel.stringValue = "充值余额"
         toppedUpLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
         toppedUpLabel.textColor = .secondaryLabelColor
+        toppedUpLabel.isEditable = false
+        toppedUpLabel.isSelectable = false
+        toppedUpLabel.isBordered = false
+        toppedUpLabel.drawsBackground = false
         toppedUpLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(toppedUpLabel)
 
@@ -117,12 +141,21 @@ class BalancePopoverView: NSView {
         toppedUpValue.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         toppedUpValue.textColor = .labelColor
         toppedUpValue.alignment = .right
+        toppedUpValue.isEditable = false
+        toppedUpValue.isSelectable = false
+        toppedUpValue.isBordered = false
+        toppedUpValue.drawsBackground = false
         toppedUpValue.translatesAutoresizingMaskIntoConstraints = false
         addSubview(toppedUpValue)
 
         // Granted row
+        grantedLabel.stringValue = "赠送余额"
         grantedLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
         grantedLabel.textColor = .secondaryLabelColor
+        grantedLabel.isEditable = false
+        grantedLabel.isSelectable = false
+        grantedLabel.isBordered = false
+        grantedLabel.drawsBackground = false
         grantedLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(grantedLabel)
 
@@ -133,6 +166,10 @@ class BalancePopoverView: NSView {
         grantedValue.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         grantedValue.textColor = .labelColor
         grantedValue.alignment = .right
+        grantedValue.isEditable = false
+        grantedValue.isSelectable = false
+        grantedValue.isBordered = false
+        grantedValue.drawsBackground = false
         grantedValue.translatesAutoresizingMaskIntoConstraints = false
         addSubview(grantedValue)
 
@@ -153,6 +190,18 @@ class BalancePopoverView: NSView {
         settingsButton.action = #selector(settingsTapped)
         addSubview(settingsButton)
 
+        // Tip label
+        tipLabel.stringValue = "⌥ 点击切换平台"
+        tipLabel.font = NSFont.systemFont(ofSize: 10)
+        tipLabel.textColor = .tertiaryLabelColor
+        tipLabel.alignment = .center
+        tipLabel.isEditable = false
+        tipLabel.isSelectable = false
+        tipLabel.isBordered = false
+        tipLabel.drawsBackground = false
+        tipLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(tipLabel)
+
         // Layout
         NSLayoutConstraint.activate([
             effectView.topAnchor.constraint(equalTo: topAnchor),
@@ -170,7 +219,7 @@ class BalancePopoverView: NSView {
             subtitleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             stateLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stateLabel.centerYAnchor.constraint(equalTo: balanceLabel.centerYAnchor),
+            stateLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             // Topped up row
             toppedUpLabel.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 18),
@@ -200,12 +249,16 @@ class BalancePopoverView: NSView {
             grantedValue.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
             grantedValue.widthAnchor.constraint(equalToConstant: 70),
 
+            // Tip label
+            tipLabel.topAnchor.constraint(equalTo: grantedValue.bottomAnchor, constant: 12),
+            tipLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+
             // Buttons
             refreshButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            refreshButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
+            refreshButton.topAnchor.constraint(equalTo: tipLabel.bottomAnchor, constant: 6),
 
             settingsButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
-            settingsButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
+            settingsButton.topAnchor.constraint(equalTo: tipLabel.bottomAnchor, constant: 6),
         ])
 
         showLoading()

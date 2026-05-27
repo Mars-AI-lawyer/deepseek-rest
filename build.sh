@@ -27,7 +27,10 @@ swiftc \
     "$SOURCE_DIR/DeepSeekAPI.swift" \
     "$SOURCE_DIR/KeychainManager.swift" \
     "$SOURCE_DIR/TokenPromptController.swift" \
-    "$SOURCE_DIR/BalanceViewController.swift"
+    "$SOURCE_DIR/BalanceViewController.swift" \
+    "$SOURCE_DIR/MiMoAPI.swift" \
+    "$SOURCE_DIR/MiMoLoginWindowController.swift" \
+    "$SOURCE_DIR/MiMoBalanceViewController.swift"
 
 echo "=== Step 4: Copy resources ==="
 cp "$SOURCE_DIR/Assets/status_icon.png" "$RESOURCES_DIR/"
